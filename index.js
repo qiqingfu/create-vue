@@ -1,11 +1,23 @@
 #!/usr/bin/env node
 // @ts-check
 
+/**
+ * Node 内置的模块
+ */
 import fs from 'fs'
 import path from 'path'
 
+/**
+ * 用于解析命令行参数
+ */
 import minimist from 'minimist'
+/**
+ * 交互式命令行，包括列表选择，Input输入，单选，多选等...
+ */
 import prompts from 'prompts'
+/**
+ * 命令行颜色工具
+ */
 import { red, green, bold } from 'kolorist'
 
 import renderTemplate from './utils/renderTemplate.js'
@@ -13,10 +25,18 @@ import { postOrderDirectoryTraverse, preOrderDirectoryTraverse } from './utils/d
 import generateReadme from './utils/generateReadme.js'
 import getCommand from './utils/getCommand.js'
 
+/**
+ * 检查 package.json 的 name 是否有效
+ * @param {any} projectName 
+ */
 function isValidPackageName(projectName) {
   return /^(?:@[a-z0-9-*~][a-z0-9-*._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/.test(projectName)
 }
 
+/**
+ * 转换为标准的有效的包名
+ * @param {*} projectName 
+ */
 function toValidPackageName(projectName) {
   return projectName
     .trim()
@@ -26,20 +46,37 @@ function toValidPackageName(projectName) {
     .replace(/[^a-z0-9-~]+/g, '-')
 }
 
+/**
+ * 用于检查此覆盖操作是否安全
+ * 若目录不存在或者是空目录，则覆盖是安全的，无需提示
+ * 否则覆盖是不安全的，需要提示用户
+ * @param {String} dir 
+ */
 function canSafelyOverwrite(dir) {
   return !fs.existsSync(dir) || fs.readdirSync(dir).length === 0
 }
 
+/**
+ * 删除一个目录及其内部的所有文件 
+ */
 function emptyDir(dir) {
   postOrderDirectoryTraverse(
     dir,
+    // 目录删除
     (dir) => fs.rmdirSync(dir),
+    // 删除文件或符号链接
     (file) => fs.unlinkSync(file)
   )
 }
 
 async function init() {
+  /**
+   * Node 进行的当前工作目录
+   */
   const cwd = process.cwd()
+  /**
+   * 命令行接受的参数
+   */
   // possible options:
   // --default
   // --typescript / --ts
@@ -48,6 +85,10 @@ async function init() {
   // --vuex
   // --with-tests / --tests / --cypress
   // --force (for force overwriting)
+  /**
+   * minimist 第二个参数接受选项对象
+   *  alias 设置字符串名称映射的别名
+   */
   const argv = minimist(process.argv.slice(2), {
     alias: {
       typescript: ['ts'],
@@ -64,9 +105,16 @@ async function init() {
     typeof (argv.default || argv.ts || argv.jsx || argv.router || argv.vuex || argv.tests) ===
     'boolean'
 
+    /**
+     * npx create-vue ./demo
+     * 设置项目生成的目录，如果没有设置，则使用默认的项目名称
+     */
   let targetDir = argv._[0]
   const defaultProjectName = !targetDir ? 'vue-project' : targetDir
 
+  /**
+   * 已有生成的目录，是否强行覆盖
+   */
   const forceOverwrite = argv.force
 
   let result = {}
@@ -74,8 +122,8 @@ async function init() {
   try {
     // Prompts:
     // - Project name:
-    //   - whether to overwrite the existing directory or not?
-    //   - enter a valid package name for package.json
+    // - whether to overwrite the existing directory or not?
+    // - enter a valid package name for package.json
     // - Project language: JavaScript / TypeScript
     // - Add JSX Support?
     // - Install Vue Router for SPA development?
@@ -83,6 +131,11 @@ async function init() {
     // - Add Cypress for testing?
     result = await prompts(
       [
+        /**
+         * 项目名称, 当 type 为 null 时则跳过该询问.
+         * onState，当前提示的状态改变时的回调  state => TODO
+         * state: { value: xxx, aborted: boolean }
+         */
         {
           name: 'projectName',
           type: targetDir ? null : 'text',
@@ -90,6 +143,11 @@ async function init() {
           initial: defaultProjectName,
           onState: (state) => (targetDir = String(state.value).trim() || defaultProjectName)
         },
+        /**
+         * 检查是否应该覆盖
+         * 1. canSafelyOverwrite 可以安全覆盖
+         * 2. forceOverwrite 强制覆盖，因此不提示
+         */
         {
           name: 'shouldOverwrite',
           type: () => (canSafelyOverwrite(targetDir) || forceOverwrite ? null : 'confirm'),
@@ -100,6 +158,10 @@ async function init() {
             return `${dirForPrompt} is not empty. Remove existing files and continue?`
           }
         },
+        /**
+         * 覆盖检查，当 shouldOverwrite confirm 确认时，用户选择 N 拒绝时，
+         * 则触发 overwriteChecker
+         */
         {
           name: 'overwriteChecker',
           type: (prev, values = {}) => {
@@ -109,6 +171,10 @@ async function init() {
             return null
           }
         },
+        /**
+         * 包的名称，目录名作为 package.json 的 name
+         * validate 接收用户的输入进行校验，有效值返回 true，否则返回字符串类型的错误消息
+         */
         {
           name: 'packageName',
           type: () => (isValidPackageName(targetDir) ? null : 'text'),
@@ -157,6 +223,9 @@ async function init() {
           inactive: 'No'
         }
       ],
+      /**
+       * 当用户取消操作时，抛出错误，让外部 catch 捕获
+       */
       {
         onCancel: () => {
           throw new Error(red('✖') + ' Operation cancelled')
@@ -179,16 +248,32 @@ async function init() {
     needsVuex = argv.vuex,
     needsTests = argv.tests
   } = result
+
+  /**
+   * 项目目录的路径
+   */
   const root = path.join(cwd, targetDir)
 
+  /**
+   * 覆盖已有的项目
+   */
   if (shouldOverwrite) {
     emptyDir(root)
   } else if (!fs.existsSync(root)) {
+    /**
+     * 当前目录不存在，使用 mkdirSync
+     * 这创建完成之后，就可以向该目录中写入内容了
+     */
     fs.mkdirSync(root)
   }
 
   console.log(`\nScaffolding project in ${root}...`)
 
+  /**
+   * 创建 package.json 的初始信息
+   *  - 包名
+   *  - 版本号
+   */
   const pkg = { name: packageName, version: '0.0.0' }
   fs.writeFileSync(path.resolve(root, 'package.json'), JSON.stringify(pkg, null, 2))
 
@@ -196,13 +281,20 @@ async function init() {
   // work around the esbuild issue that `import.meta.url` cannot be correctly transpiled
   // when bundling for node and the format is cjs
   // const templateRoot = new URL('./template', import.meta.url).pathname
+  /**
+   * 模板根目录
+   */
   const templateRoot = path.resolve(__dirname, 'template')
+  /**
+   * 统一的 render 函数，使用根模板目录下的指定部分
+   * 然后由 renderTemplate 函数向 root 目录添加
+   */
   const render = function render(templateName) {
     const templateDir = path.resolve(templateRoot, templateName)
     renderTemplate(templateDir, root)
   }
 
-  // Render base template
+  // 呈现基本的模板
   render('base')
 
   // Add configs.
