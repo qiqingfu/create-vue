@@ -27,7 +27,7 @@ import getCommand from './utils/getCommand.js'
 
 /**
  * 检查 package.json 的 name 是否有效
- * @param {any} projectName 
+ * @param {any} projectName
  */
 function isValidPackageName(projectName) {
   return /^(?:@[a-z0-9-*~][a-z0-9-*._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/.test(projectName)
@@ -35,7 +35,7 @@ function isValidPackageName(projectName) {
 
 /**
  * 转换为标准的有效的包名
- * @param {*} projectName 
+ * @param {*} projectName
  */
 function toValidPackageName(projectName) {
   return projectName
@@ -50,14 +50,14 @@ function toValidPackageName(projectName) {
  * 用于检查此覆盖操作是否安全
  * 若目录不存在或者是空目录，则覆盖是安全的，无需提示
  * 否则覆盖是不安全的，需要提示用户
- * @param {String} dir 
+ * @param {String} dir
  */
 function canSafelyOverwrite(dir) {
   return !fs.existsSync(dir) || fs.readdirSync(dir).length === 0
 }
 
 /**
- * 删除一个目录及其内部的所有文件 
+ * 删除一个目录及其内部的所有文件和目录
  */
 function emptyDir(dir) {
   postOrderDirectoryTraverse(
@@ -121,14 +121,14 @@ async function init() {
 
   try {
     // Prompts:
-    // - Project name:
-    // - whether to overwrite the existing directory or not?
-    // - enter a valid package name for package.json
-    // - Project language: JavaScript / TypeScript
-    // - Add JSX Support?
-    // - Install Vue Router for SPA development?
-    // - Install Vuex for state management? (TODO)
-    // - Add Cypress for testing?
+    // - 项目名称:
+    // - 是否要覆盖现有的目录??
+    // - 为 package.json 输入一个有效的软件包名称
+    // - 项目语言 JS/TS
+    // - 添加 JSX 支持
+    // - 安装 Vue Router
+    // - 安装状态管理工具 Vuex?
+    // - 添加测试 Cypress
     result = await prompts(
       [
         /**
@@ -291,10 +291,14 @@ async function init() {
    */
   const render = function render(templateName) {
     const templateDir = path.resolve(templateRoot, templateName)
+    /**
+     * templateDir 要使用模板文件的目录
+     * root 目标项目目录
+     */
     renderTemplate(templateDir, root)
   }
 
-  // 呈现基本的模板
+  // 呈现基本的配置模板
   render('base')
 
   // Add configs.
@@ -314,6 +318,13 @@ async function init() {
     render('config/typescript')
   }
 
+  /**
+   * 渲染 code 目录下的代码模板
+   * - default
+   * - typescript-default
+   * - router
+   * - typescript-router
+   */
   // Render code template.
   // prettier-ignore
   const codeTemplate =
@@ -333,28 +344,53 @@ async function init() {
   }
 
   // Cleanup.
-
+  /**
+   * 如果用户开启了 TypeScript
+   */
   if (needsTypeScript) {
     // rename all `.js` files to `.ts`
     // rename jsconfig.json to tsconfig.json
+    /**
+     * 将生成项目的所有 .js 文件重命名为 .ts 文件
+     * 将 jsconfig.json 重命名为 tsconfig.json
+     */
     preOrderDirectoryTraverse(
       root,
       () => {},
       (filepath) => {
+
+        /**
+         * endsWith 判断当前字符串是否以另外一个给定的字符串结尾的
+         */
         if (filepath.endsWith('.js')) {
+          /**
+           * 对 filepath 文件重命名
+           */
           fs.renameSync(filepath, filepath.replace(/\.js$/, '.ts'))
         } else if (path.basename(filepath) === 'jsconfig.json') {
+          /**
+           * 将 jsconfig.json 更名为 tsconfig.json
+           */
           fs.renameSync(filepath, filepath.replace(/jsconfig\.json$/, 'tsconfig.json'))
         }
       }
     )
 
+    /**
+     * 重更名 index.html 文件 <script src="src/main.js"></script>
+     */
     // Rename entry in `index.html`
     const indexHtmlPath = path.resolve(root, 'index.html')
     const indexHtmlContent = fs.readFileSync(indexHtmlPath, 'utf8')
+    /**
+     * 写入替换后的内容
+     */
     fs.writeFileSync(indexHtmlPath, indexHtmlContent.replace('src/main.js', 'src/main.ts'))
   }
 
+  /**
+   * 不需要测试
+   */
   if (!needsTests) {
     // All templates assumes the need of tests.
     // If the user doesn't need it:
@@ -365,7 +401,13 @@ async function init() {
         const dirname = path.basename(dirpath)
 
         if (dirname === 'cypress' || dirname === '__tests__') {
+          /**
+           * 删除目录中所有的目录及文件
+           */
           emptyDir(dirpath)
+          /**
+           * 同步删除指定路径下的目录
+           */
           fs.rmdirSync(dirpath)
         }
       },
@@ -377,6 +419,9 @@ async function init() {
   // Supported package managers: pnpm > yarn > npm
   // Note: until <https://github.com/pnpm/pnpm/issues/3505> is resolved,
   // it is not possible to tell if the command is called by `pnpm init`.
+  /**
+   * 检查用户支持的包管理器，优先级顺序为 pnpm > yarn > npm
+   */
   const packageManager = /pnpm/.test(process.env.npm_execpath)
     ? 'pnpm'
     : /yarn/.test(process.env.npm_execpath)
@@ -386,6 +431,9 @@ async function init() {
   // README generation
   fs.writeFileSync(
     path.resolve(root, 'README.md'),
+    /**
+     * 生成 README.md 文档
+     */
     generateReadme({
       projectName: result.projectName || defaultProjectName,
       packageManager,
@@ -395,6 +443,14 @@ async function init() {
   )
 
   console.log(`\nDone. Now run:\n`)
+  /**
+   * 项目生成完成后，在命令行提醒用户操作
+   */
+
+   /**
+    * CLI 生成的项目架构文件不是在当前执行 CLI 所在目录
+    * 提醒用户进入到 CLI 生成的项目目录中
+    */
   if (root !== cwd) {
     console.log(`  ${bold(green(`cd ${path.relative(cwd, root)}`))}`)
   }

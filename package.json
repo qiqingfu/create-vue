@@ -14,6 +14,7 @@
     "node": "^12.13.0 || ^14.0.0 || >= 16.0.0"
   },
   "scripts": {
+    "start": "node index.js",
     "prepare": "husky install",
     "format": "prettier --write .",
     "build": "esbuild --bundle index.js --format=cjs --platform=node --outfile=outfile.cjs",
