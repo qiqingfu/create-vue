@@ -57,7 +57,7 @@ function canSafelyOverwrite(dir) {
 }
 
 /**
- * 删除一个目录及其内部的所有文件和目录
+ * 清空指定目录及其内部的所有文件和目录
  */
 function emptyDir(dir) {
   postOrderDirectoryTraverse(
@@ -172,8 +172,8 @@ async function init() {
           }
         },
         /**
-         * 包的名称，目录名作为 package.json 的 name
-         * validate 接收用户的输入进行校验，有效值返回 true，否则返回字符串类型的错误消息
+         * 包名称，package.json 的 name 字段默认为项目名
+         * validate 接收用户的输入进行校验，有效值返回 true，否则返回字符串类型作为错误消息
          */
         {
           name: 'packageName',
@@ -286,14 +286,13 @@ async function init() {
    */
   const templateRoot = path.resolve(__dirname, 'template')
   /**
-   * 统一的 render 函数，使用根模板目录下的指定部分
-   * 然后由 renderTemplate 函数向 root 目录添加
+   * 主要拼接上渲染的模板路径
    */
   const render = function render(templateName) {
     const templateDir = path.resolve(templateRoot, templateName)
     /**
-     * templateDir 要使用模板文件的目录
-     * root 目标项目目录
+     * templateDir 要使用模板的目录
+     * root 生成项目的目录
      */
     renderTemplate(templateDir, root)
   }
@@ -364,7 +363,7 @@ async function init() {
          */
         if (filepath.endsWith('.js')) {
           /**
-           * 对 filepath 文件重命名
+           * 将 .js 文件重命名为 .ts 文件
            */
           fs.renameSync(filepath, filepath.replace(/\.js$/, '.ts'))
         } else if (path.basename(filepath) === 'jsconfig.json') {
@@ -382,14 +381,11 @@ async function init() {
     // Rename entry in `index.html`
     const indexHtmlPath = path.resolve(root, 'index.html')
     const indexHtmlContent = fs.readFileSync(indexHtmlPath, 'utf8')
-    /**
-     * 写入替换后的内容
-     */
     fs.writeFileSync(indexHtmlPath, indexHtmlContent.replace('src/main.js', 'src/main.ts'))
   }
 
   /**
-   * 不需要测试
+   * 当用户不需要测试时
    */
   if (!needsTests) {
     // All templates assumes the need of tests.
@@ -421,6 +417,7 @@ async function init() {
   // it is not possible to tell if the command is called by `pnpm init`.
   /**
    * 检查用户支持的包管理器，优先级顺序为 pnpm > yarn > npm
+   * npm_execpath 检查当前运行进程的环境变量来工作
    */
   const packageManager = /pnpm/.test(process.env.npm_execpath)
     ? 'pnpm'

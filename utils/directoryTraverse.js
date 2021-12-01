@@ -8,10 +8,10 @@ export function preOrderDirectoryTraverse(dir, dirCallback, fileCallback) {
   for (const filename of fs.readdirSync(dir)) {
     const fullpath = path.resolve(dir, filename)
     /**
-     * 是目录
+     * fullpath 是目录
      */
     if (fs.lstatSync(fullpath).isDirectory()) {
-      // 支持在回调函数中删除该目录
+      // 如果是目录，先通过 dirCallback 通知外部
       dirCallback(fullpath)
       /**
        * 要再检查一下目录是否存在
@@ -23,29 +23,30 @@ export function preOrderDirectoryTraverse(dir, dirCallback, fileCallback) {
       continue
     }
     /**
-     * 文件路径
+     * 目录下的文件
      */
     fileCallback(fullpath)
   }
 }
 
 /**
- * 递归处理目录或文件
+ * 递归处理目录和文件
  * fs.readdirSync：同步读取目录内容
- * 拼接成完全的绝对目录路径或完整的绝对文件路径
+ * 拼接为绝对路径
  *
  * fs.lstatSync 同步获取路径引用的符号链接。Stats 对象
  *
  * isDirectory() 如果是目录，返回 true
  *
- * 深度优先遍历
+ * 深度优先遍历（文件优先，目录其次）
+ * 1. 先删除最深层目录下的所有文件，再删除该目录
  */
 export function postOrderDirectoryTraverse(dir, dirCallback, fileCallback) {
   for (const filename of fs.readdirSync(dir)) {
     const fullpath = path.resolve(dir, filename)
     // 目录
     if (fs.lstatSync(fullpath).isDirectory()) {
-      // 先遍历 fullpath 目录的内容
+      // 先遍历 fullpath
       // 再把目录的路径返回给回调函数
       postOrderDirectoryTraverse(fullpath, dirCallback, fileCallback)
       dirCallback(fullpath)
